@@ -1,51 +1,43 @@
-name: Windows-11-VM-Tailscale
-on: 
+name: Windows VM WIN
+
+on:
   workflow_dispatch:
-    inputs:
-      authkey:
-        description: 'Enter Tailscale Auth Key'
-        required: true
 
 jobs:
-  vps:
+  build:
     runs-on: windows-latest
+    timeout-minutes: 360
+
     steps:
-      - name: Download and Install Tailscale
+      - name: Create random password
+        id: pass
+        shell: powershell
         run: |
-          Write-Host "Downloading Tailscale..."
-          Invoke-WebRequest https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe -OutFile tailscale-setup.exe
-          Write-Host "Installing..."
-          Start-Process -FilePath .\tailscale-setup.exe -ArgumentList "/S" -Wait
-          
-      - name: Connect to Tailscale
+          $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+          $password = -join ((1..16) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+          echo "PASSWORD=$password" >> $env:GITHUB_ENV
+
+      - name: Create user WIN
+        shell: powershell
         run: |
-          Write-Host "Connecting to Tailnet..."
-          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ github.event.inputs.authkey }}
-          
-      - name: Configure User and RDP
+          $username = "WIN"
+          $password = ConvertTo-SecureString "$env:PASSWORD" -AsPlainText -Force
+          New-LocalUser -Name $username -Password $password -FullName "WIN User"
+          Add-LocalGroupMember -Group "Administrators" -Member $username
+
+      - name: Enable RDP
+        shell: powershell
         run: |
-          Write-Host "Setting up RDP credentials..."
-          $User = "runneradmin"
-          $Pass = "KiuVip2026!"
-          net user $User $Pass
-          
-          # Enable Remote Desktop and Firewall Rules
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          
-          Write-Host "------------------------------------------"
-          Write-Host "RDP USERNAME: $User"
-          Write-Host "RDP PASSWORD: $Pass"
-          Write-Host "------------------------------------------"
-          
-      - name: Keep Alive (6 Hours)
+
+      - name: Show login info
         run: |
-          $n = 360
-          do {
-            $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
-            Write-Host "Tailscale IP: $ip"
-            Write-Host "Time Remaining: $n minutes"
-            Start-Sleep -Seconds 60
-            $n--
-          } while ($n -gt 0)
-          
+          echo "=============================="
+          echo "USERNAME: WIN"
+          echo "PASSWORD: $PASSWORD"
+          echo "=============================="
+
+      - name: Keep VM alive
+        run: |
+          ping -t 127.0.0.1
