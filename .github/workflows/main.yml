@@ -1,4 +1,4 @@
-name: 🖥️ RDP • Windows 11 • FIXED PASSWORD
+name: 🖥️ RDP • Windows 11 • FIXED PASSWORD (NO ERROR)
 
 on:
   workflow_dispatch:
@@ -11,15 +11,15 @@ jobs:
     steps:
     - name: 🔐 Enable RDP
       run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name UserAuthentication -Value 0
+        Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' fDenyTSConnections 0
+        Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' UserAuthentication 0
         netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
         Restart-Service TermService -Force
 
-    - name: 👤 Create RDP User (FIXED PASSWORD)
+    - name: 👤 Create RDP User (FIXED & VALID PASSWORD)
       run: |
         $username = "WIN"
-        $password = "Win11@RDP#2026!"
+        $password = "Rdp@13579!Zx"
         $secure = ConvertTo-SecureString $password -AsPlainText -Force
 
         if (Get-LocalUser -Name $username -ErrorAction SilentlyContinue) {
@@ -48,7 +48,7 @@ jobs:
         Write-Host "================================"
         Write-Host "IP       : $env:TS_IP"
         Write-Host "USERNAME : WIN"
-        Write-Host "PASSWORD : Win11@RDP#2026!"
+        Write-Host "PASSWORD : Rdp@13579!Zx"
         Write-Host "================================"
 
         while ($true) { Start-Sleep 300 }
