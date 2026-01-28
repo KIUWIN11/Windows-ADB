@@ -1,43 +1,54 @@
-name: Windows VM WIN
+name: 🖥️ RDP • Windows 11 • FIXED PASSWORD
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  rdp:
     runs-on: windows-latest
-    timeout-minutes: 360
+    timeout-minutes: 3600
 
     steps:
-      - name: Create random password
-        id: pass
-        shell: powershell
-        run: |
-          $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
-          $password = -join ((1..16) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
-          echo "PASSWORD=$password" >> $env:GITHUB_ENV
+    - name: 🔐 Enable RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name UserAuthentication -Value 0
+        netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+        Restart-Service TermService -Force
 
-      - name: Create user WIN
-        shell: powershell
-        run: |
-          $username = "WIN"
-          $password = ConvertTo-SecureString "$env:PASSWORD" -AsPlainText -Force
-          New-LocalUser -Name $username -Password $password -FullName "WIN User"
+    - name: 👤 Create RDP User (FIXED PASSWORD)
+      run: |
+        $username = "WIN"
+        $password = "Win11@RDP#2026!"
+        $secure = ConvertTo-SecureString $password -AsPlainText -Force
+
+        if (Get-LocalUser -Name $username -ErrorAction SilentlyContinue) {
+          Set-LocalUser -Name $username -Password $secure
+        } else {
+          New-LocalUser -Name $username -Password $secure -AccountNeverExpires
           Add-LocalGroupMember -Group "Administrators" -Member $username
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
+        }
 
-      - name: Enable RDP
-        shell: powershell
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        echo "RDP_PASS=$password" >> $env:GITHUB_ENV
 
-      - name: Show login info
-        run: |
-          echo "=============================="
-          echo "USERNAME: WIN"
-          echo "PASSWORD: $PASSWORD"
-          echo "=============================="
+    - name: 🌐 Install Tailscale
+      run: |
+        Invoke-WebRequest https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi -OutFile ts.msi
+        Start-Process msiexec.exe -ArgumentList "/i ts.msi /quiet /norestart" -Wait
 
-      - name: Keep VM alive
-        run: |
-          ping -t 127.0.0.1
+    - name: 🔗 Connect Tailscale
+      run: |
+        & "C:\Program Files\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }}
+        $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
+        echo "TS_IP=$ip" >> $env:GITHUB_ENV
+
+    - name: 🟢 SHOW LOGIN INFO + KEEP ALIVE
+      run: |
+        Write-Host "================================"
+        Write-Host "IP       : $env:TS_IP"
+        Write-Host "USERNAME : WIN"
+        Write-Host "PASSWORD : Win11@RDP#2026!"
+        Write-Host "================================"
+
+        while ($true) { Start-Sleep 300 }
