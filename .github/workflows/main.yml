@@ -1,4 +1,4 @@
-name: 🖥️ RDP • Windows 11 • FIXED PASSWORD (NO ERROR)
+name: 🖥️ RDP • Windows 11 • PUBLIC • SIMPLE
 
 on:
   workflow_dispatch:
@@ -9,14 +9,20 @@ jobs:
     timeout-minutes: 3600
 
     steps:
+    # ===============================
+    # ENABLE RDP + FIREWALL
+    # ===============================
     - name: 🔐 Enable RDP
       run: |
         Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' fDenyTSConnections 0
         Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' UserAuthentication 0
-        netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+        netsh advfirewall firewall add rule name="RDP-3389" dir=in action=allow protocol=TCP localport=3389
         Restart-Service TermService -Force
 
-    - name: 👤 Create RDP User (FIXED & VALID PASSWORD)
+    # ===============================
+    # CREATE USER (USERNAME GIỮ NGUYÊN)
+    # ===============================
+    - name: 👤 Create RDP User
       run: |
         $username = "WIN"
         $password = "Rdp@13579!Zx"
@@ -30,25 +36,17 @@ jobs:
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
         }
 
-        echo "RDP_PASS=$password" >> $env:GITHUB_ENV
-
-    - name: 🌐 Install Tailscale
-      run: |
-        Invoke-WebRequest https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi -OutFile ts.msi
-        Start-Process msiexec.exe -ArgumentList "/i ts.msi /quiet /norestart" -Wait
-
-    - name: 🔗 Connect Tailscale
-      run: |
-        & "C:\Program Files\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }}
-        $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
-        echo "TS_IP=$ip" >> $env:GITHUB_ENV
-
+    # ===============================
+    # SHOW IP + KEEP ALIVE
+    # ===============================
     - name: 🟢 SHOW LOGIN INFO + KEEP ALIVE
       run: |
+        $ip = (Invoke-RestMethod -Uri "https://api.ipify.org")
         Write-Host "================================"
-        Write-Host "IP       : $env:TS_IP"
-        Write-Host "USERNAME : WIN"
-        Write-Host "PASSWORD : Rdp@13579!Zx"
+        Write-Host "PUBLIC IP : $ip"
+        Write-Host "PORT      : 3389"
+        Write-Host "USERNAME  : WIN"
+        Write-Host "PASSWORD  : Rdp@13579!Zx"
         Write-Host "================================"
 
         while ($true) { Start-Sleep 300 }
