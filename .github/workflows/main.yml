@@ -1,52 +1,105 @@
-name: 🖥️ RDP • Windows 11 • PUBLIC • SIMPLE
+name: ❄️ Snow ARM
 
 on:
   workflow_dispatch:
 
 jobs:
-  rdp:
+  UI-PASS:
     runs-on: windows-latest
-    timeout-minutes: 3600
+    timeout-minutes: 360
 
     steps:
-    # ===============================
-    # ENABLE RDP + FIREWALL
-    # ===============================
+    # 🔐 ENABLE RDP
     - name: 🔐 Enable RDP
       run: |
-        Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' fDenyTSConnections 0
-        Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' UserAuthentication 0
-        netsh advfirewall firewall add rule name="RDP-3389" dir=in action=allow protocol=TCP localport=3389
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0 -Force
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+        netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
         Restart-Service TermService -Force
 
-    # ===============================
-    # CREATE USER (USERNAME GIỮ NGUYÊN)
-    # ===============================
+    # 👤 CREATE USER
     - name: 👤 Create RDP User
       run: |
-        $username = "WIN"
-        $password = "Rdp@13579!Zx"
-        $secure = ConvertTo-SecureString $password -AsPlainText -Force
+        $User = "Kiubby"
+        $Password = "Tt@pb2b!"
+        $Secure = ConvertTo-SecureString $Password -AsPlainText -Force
+        New-LocalUser -Name $User -Password $Secure -AccountNeverExpires -ErrorAction SilentlyContinue
+        Set-LocalUser -Name $User -Password $Secure -ErrorAction SilentlyContinue
+        Add-LocalGroupMember -Group Administrators -Member $User
+        Add-LocalGroupMember -Group "Remote Desktop Users" -Member $User
+        echo "RDP_PASS=$Password" >> $env:GITHUB_ENV
 
-        if (Get-LocalUser -Name $username -ErrorAction SilentlyContinue) {
-          Set-LocalUser -Name $username -Password $secure
-        } else {
-          New-LocalUser -Name $username -Password $secure -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member $username
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
-        }
-
-    # ===============================
-    # SHOW IP + KEEP ALIVE
-    # ===============================
-    - name: 🟢 SHOW LOGIN INFO + KEEP ALIVE
+    # 🏷️ CHANGE TO WINDOWS 11 PRO 26H1
+    - name: 🏷️ Change to Windows 11 Pro 26H1
       run: |
-        $ip = (Invoke-RestMethod -Uri "https://api.ipify.org")
-        Write-Host "================================"
-        Write-Host "PUBLIC IP : $ip"
-        Write-Host "PORT      : 3389"
-        Write-Host "USERNAME  : WIN"
-        Write-Host "PASSWORD  : Rdp@13579!Zx"
-        Write-Host "================================"
+        # Change Windows name to Windows 11 Pro
+        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "ProductName" /t REG_SZ /d "Windows 11 Pro" /f
+        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "EditionID" /t REG_SZ /d "Professional" /f
+        
+        # Change version to 26H1
+        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "ReleaseId" /t REG_SZ /d "26H1" /f
+        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "DisplayVersion" /t REG_SZ /d "26H1" /f
+        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "CurrentBuild" /t REG_SZ /d "22631" /f
+        reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v "CurrentBuildNumber" /t REG_SZ /d "22631" /f
+        
+        # For 32-bit apps
+        reg add "HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion" /v "ProductName" /t REG_SZ /d "Windows 11 Pro" /f
+        reg add "HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion" /v "ReleaseId" /t REG_SZ /d "26H1" /f
 
-        while ($true) { Start-Sleep 300 }
+    # 🚀 SPOOF CPU TO SNAPDRAGON X2 ELITE
+    - name: 🚀 Spoof CPU to Snapdragon X2 Elite
+      run: |
+        reg add "HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0" /v "ProcessorNameString" /t REG_SZ /d "(⁠≧⁠▽⁠≦⁠) ARM Snapdragon X2 Elite @ 4.2GHz" /f
+        reg add "HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0" /v "VendorIdentifier" /t REG_SZ /d "Qualcomm" /f
+        reg add "HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0" /v "Identifier" /t REG_SZ /d "ARM Family 8 Model D07" /f
+        reg add "HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0" /v "~MHz" /t REG_DWORD /d 4200 /f
+
+    # 🎮 SPOOF GPU
+    - name: 🎮 Spoof GPU
+      run: |
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000" /v "DriverDesc" /t REG_SZ /d "NVIDIA GeForce RTX 5090 24GB GDDR7" /f
+
+    # 🌐 TAILSCALE
+    - name: 🌐 Install Tailscale
+      run: |
+        Invoke-WebRequest https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi -OutFile $env:TEMP\ts.msi
+        Start-Process msiexec -ArgumentList "/i `"$env:TEMP\ts.msi`" /quiet" -Wait
+
+    - name: 🔗 Connect Tailscale
+      run: |
+        & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }}
+        $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+        echo "TAILSCALE_IP=$ip" >> $env:GITHUB_ENV
+
+    # 🟢 KEEP ALIVE
+    - name: 🟢 Keep Alive
+      run: |
+        Write-Host "========================================"
+        Write-Host "❄️  SNOW VM - ARM EDITION"
+        Write-Host "========================================"
+        Write-Host "OS: Windows 11 Pro 26H1"
+        Write-Host "Build: 22631.1 (ARM64)"
+        Write-Host "CPU: (⁠≧⁠▽⁠≦⁠) ARM Snapdragon X2 Elite"
+        Write-Host "Speed: 4.2GHz (8 cores / 16 threads)"
+        Write-Host "GPU: NVIDIA RTX 5090 24GB GDDR7"
+        Write-Host "RAM: 16GB LPDDR5X"
+        Write-Host ""
+        Write-Host "🔗 RDP CONNECTION INFO"
+        Write-Host "========================================"
+        Write-Host "IP: $env:TAILSCALE_IP"
+        Write-Host "User: Kiubby"
+        Write-Host "Pass: $env:RDP_PASS"
+        Write-Host "Port: 3389"
+        Write-Host ""
+        Write-Host "⚡ HIGH PERFORMANCE - STABLE"
+        Write-Host "========================================"
+        Write-Host "• Optimized for ARM64"
+        Write-Host "• AI Accelerator Support"
+        Write-Host "• Ray Tracing Enabled"
+        Write-Host "• DirectX 13 Ultimate"
+        Write-Host "• Virtualization Enhanced"
+        Write-Host "========================================"
+        
+        while ($true) {
+          Start-Sleep 300
+        }
